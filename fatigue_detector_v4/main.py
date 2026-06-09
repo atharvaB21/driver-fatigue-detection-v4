@@ -387,6 +387,7 @@ def main():
         face_obscured_secs=Config.FACE_OBSCURED_THRESHOLD,
         no_face_secs=Config.NO_FACE_THRESHOLD,
         phone_call_roll_threshold=Config.PHONE_CALL_ROLL_THRESHOLD,
+        phone_call_moderate_roll_threshold=Config.PHONE_CALL_MODERATE_ROLL_THRESHOLD,
         copassenger_side=Config.COPASSENGER_SIDE,
     )
 

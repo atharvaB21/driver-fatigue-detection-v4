@@ -242,7 +242,7 @@ class ScenarioTestRunner:
         for _ in range(30):
             result = engine.update(
                 ear=0.30, mar=0.0, pitch=0.0, yaw=20.0, perclos=0.0,
-                gaze_h=0.5, gaze_v=0.5, roll=5.0
+                gaze_h=0.5, gaze_v=0.5, roll=9.0
             )
             time.sleep(0.01)
         state, dist, yawn = result

@@ -128,6 +128,7 @@ class DecisionEngine:
         face_obscured_secs: float = 3.0,
         no_face_secs: float = 2.0,
         phone_call_roll_threshold: float = 11.0,
+        phone_call_moderate_roll_threshold: float = 8.0,
         copassenger_side: str = "right",
     ):
         # ── EAR / drowsiness thresholds ──
@@ -162,6 +163,7 @@ class DecisionEngine:
         self.face_obscured_secs = face_obscured_secs
         self.no_face_secs = no_face_secs
         self.phone_call_roll_threshold = phone_call_roll_threshold
+        self.phone_call_moderate_roll_threshold = phone_call_moderate_roll_threshold
 
         # ── Co-passenger direction ──
         # For right-side passenger (left-hand drive): positive yaw
@@ -354,7 +356,7 @@ class DecisionEngine:
         # tilt (shoulder-pinch) indicates a phone call if head turn is moderate (yaw <= 35°).
         phone_call_cond = (detected_distraction == DistractionType.NONE and (
             (abs(roll) >= self.phone_call_roll_threshold and abs(yaw) <= 35.0) or
-            (10.0 <= abs(yaw) <= 35.0 and abs(roll) >= 4.0 and abs(gaze_h - 0.5) <= 0.15)
+            (10.0 <= abs(yaw) <= 35.0 and abs(roll) >= self.phone_call_moderate_roll_threshold and abs(gaze_h - 0.5) <= 0.15)
         ))
         if phone_call_cond:
             if self._phone_call_start is None:

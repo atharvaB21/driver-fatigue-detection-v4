@@ -184,6 +184,9 @@ class Config:
     PHONE_CALL_ROLL_THRESHOLD: float = 14.0
     """Head tilt (roll) in degrees beyond which a phone call is suspected."""
 
+    PHONE_CALL_MODERATE_ROLL_THRESHOLD: float = 8.0
+    """Head tilt (roll) in degrees for moderate roll phone call detection."""
+
 
     UNRESPONSIVE_THRESHOLD: float = 15.0
     """Seconds of zero movement in all metrics to trigger unresponsive alert."""
