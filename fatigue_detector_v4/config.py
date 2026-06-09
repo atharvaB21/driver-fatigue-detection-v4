@@ -84,7 +84,7 @@ class Config:
     """Frame width used for MediaPipe inference in low-power mode.
     Lower = faster inference. The display frame stays at FRAME_WIDTH."""
 
-    FRAME_SKIP: int = 3
+    FRAME_SKIP: int = 4
     """In low-power mode, only run MediaPipe every Nth frame.
     Intermediate frames reuse the last detected landmarks.
     1 = process every frame (no skip), 2 = every other frame, etc."""
@@ -178,8 +178,12 @@ class Config:
     COPASSENGER_THRESHOLD: float = 3.0
     """Seconds of head turned toward passenger to trigger co-passenger alert."""
 
-    PHONE_CALL_THRESHOLD: float = 5.0
-    """Seconds of sustained head tilt + off-center gaze for phone-call alert."""
+    PHONE_CALL_THRESHOLD: float = 3.0
+    """Seconds of sustained head tilt or turn for phone-call alert."""
+
+    PHONE_CALL_ROLL_THRESHOLD: float = 11.0
+    """Head tilt (roll) in degrees beyond which a phone call is suspected."""
+
 
     UNRESPONSIVE_THRESHOLD: float = 15.0
     """Seconds of zero movement in all metrics to trigger unresponsive alert."""

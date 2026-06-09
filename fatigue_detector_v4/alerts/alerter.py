@@ -165,16 +165,17 @@ class Alerter:
             self._draw_alert_banner(frame, "!!! WAKE UP !!!", self.COLOR_RED, large=True)
 
         elif state == DriverState.VERY_DROWSY:
-            overlay = frame.copy()
-            cv2.rectangle(overlay, (0, 0), (w, h), self.COLOR_RED, -1)
-            cv2.addWeighted(overlay, 0.15, frame, 0.85, 0, frame)
+            # In-place red tint: darken + add red channel bias (no allocation)
+            frame[:] = np.clip(frame * 0.85, 0, 255).astype(np.uint8)
+            frame[:, :, 2] = np.clip(frame[:, :, 2].astype(np.int16) + 38, 0, 255).astype(np.uint8)
             cv2.rectangle(frame, (0, 0), (w - 1, h - 1), self.COLOR_RED, 4)
             self._draw_alert_banner(frame, "VERY DROWSY - PULL OVER!", self.COLOR_RED)
 
         elif state == DriverState.DROWSY:
-            overlay = frame.copy()
-            cv2.rectangle(overlay, (0, 0), (w, h), self.COLOR_AMBER, -1)
-            cv2.addWeighted(overlay, 0.10, frame, 0.90, 0, frame)
+            # In-place amber tint: darken + add amber channel bias (no allocation)
+            frame[:] = np.clip(frame * 0.90, 0, 255).astype(np.uint8)
+            frame[:, :, 2] = np.clip(frame[:, :, 2].astype(np.int16) + 25, 0, 255).astype(np.uint8)
+            frame[:, :, 1] = np.clip(frame[:, :, 1].astype(np.int16) + 18, 0, 255).astype(np.uint8)
             self._draw_alert_banner(frame, "DROWSY - STAY ALERT", self.COLOR_AMBER)
 
         else:
@@ -269,11 +270,12 @@ class Alerter:
         x0 = w - panel_w - 10
         y0 = 10
 
-        # Semi-transparent dark background
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (x0, y0), (x0 + panel_w, y0 + panel_h),
+        # Semi-transparent dark background (ROI-only blend for performance)
+        roi = frame[y0:y0 + panel_h, x0:x0 + panel_w].copy()
+        cv2.rectangle(roi, (0, 0), (panel_w, panel_h),
                       self.COLOR_DARK_BG, -1)
-        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+        cv2.addWeighted(roi, 0.7, frame[y0:y0 + panel_h, x0:x0 + panel_w], 0.3, 0,
+                        frame[y0:y0 + panel_h, x0:x0 + panel_w])
         cv2.rectangle(frame, (x0, y0), (x0 + panel_w, y0 + panel_h),
                       (100, 100, 100), 1)
 

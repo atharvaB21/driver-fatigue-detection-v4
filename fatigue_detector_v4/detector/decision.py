@@ -127,6 +127,7 @@ class DecisionEngine:
         eating_secs: float = 2.0,
         face_obscured_secs: float = 3.0,
         no_face_secs: float = 2.0,
+        phone_call_roll_threshold: float = 11.0,
         copassenger_side: str = "right",
     ):
         # ── EAR / drowsiness thresholds ──
@@ -160,6 +161,7 @@ class DecisionEngine:
         self.eating_secs = eating_secs
         self.face_obscured_secs = face_obscured_secs
         self.no_face_secs = no_face_secs
+        self.phone_call_roll_threshold = phone_call_roll_threshold
 
         # ── Co-passenger direction ──
         # For right-side passenger (left-hand drive): positive yaw
@@ -189,6 +191,16 @@ class DecisionEngine:
         self._smoking_start = None
         self._eating_start = None
 
+        # ── Distraction last-seen timestamps (for frame-drop tolerance) ──
+        self._looking_away_last_seen = 0.0
+        self._copassenger_last_seen = 0.0
+        self._phone_look_last_seen = 0.0
+        self._phone_call_last_seen = 0.0
+        self._face_obscured_last_seen = 0.0
+        self._no_face_last_seen = 0.0
+        self._smoking_last_seen = 0.0
+        self._eating_last_seen = 0.0
+
         # ── VATS (Visual Attention Time Sharing) tracking ──
         self._glance_timestamps = deque()  # timestamps of short glances
 
@@ -210,6 +222,7 @@ class DecisionEngine:
         gaze_v: float = 0.5,
         face_detected: bool = True,
         face_confidence: float = 1.0,
+        roll: float = 0.0,
     ) -> tuple:
         """Update the state machine with new sensor readings.
 
@@ -324,44 +337,58 @@ class DecisionEngine:
         detected_distraction = DistractionType.NONE
 
         # ── Scenario 9: Phone looking (gaze down + head pitched down) ──
-        if gaze_v > 0.65 and pitch < -15.0:
+        phone_look_cond = (gaze_v > 0.65 and pitch < -15.0)
+        if phone_look_cond:
             if self._phone_look_start is None:
                 self._phone_look_start = now
-            elif now - self._phone_look_start >= self.phone_look_secs:
+            self._phone_look_last_seen = now
+            if now - self._phone_look_start >= self.phone_look_secs:
                 detected_distraction = DistractionType.PHONE_LOOKING
         else:
-            self._phone_look_start = None
+            if self._phone_look_start is not None and (now - self._phone_look_last_seen > 0.5):
+                self._phone_look_start = None
 
-        # ── Scenario 11: Phone call (moderate yaw + gaze off-center) ──
-        if (detected_distraction == DistractionType.NONE and
-                15.0 <= abs(yaw) <= 35.0 and abs(gaze_h - 0.5) > 0.15):
+        # ── Scenario 11: Phone call (head tilt/roll OR moderate yaw + gaze off-center) ──
+        phone_call_cond = (detected_distraction == DistractionType.NONE and (
+            abs(roll) >= self.phone_call_roll_threshold or
+            (15.0 <= abs(yaw) <= 35.0 and abs(gaze_h - 0.5) > 0.15)
+        ))
+        if phone_call_cond:
             if self._phone_call_start is None:
                 self._phone_call_start = now
-            elif now - self._phone_call_start >= self.phone_call_secs:
+            self._phone_call_last_seen = now
+            if now - self._phone_call_start >= self.phone_call_secs:
                 detected_distraction = DistractionType.PHONE_CALL
         else:
-            self._phone_call_start = None
+            if self._phone_call_start is not None and (now - self._phone_call_last_seen > 0.5):
+                self._phone_call_start = None
 
         # ── Scenario 10: Talking to co-passenger (sustained yaw toward passenger) ──
         yaw_toward_passenger = yaw * self.copassenger_yaw_sign
-        if (detected_distraction == DistractionType.NONE and
-                yaw_toward_passenger > self.yaw_copassenger_threshold):
+        copassenger_cond = (detected_distraction == DistractionType.NONE and
+                            yaw_toward_passenger > self.yaw_copassenger_threshold)
+        if copassenger_cond:
             if self._copassenger_start is None:
                 self._copassenger_start = now
-            elif now - self._copassenger_start >= self.copassenger_secs:
+            self._copassenger_last_seen = now
+            if now - self._copassenger_start >= self.copassenger_secs:
                 detected_distraction = DistractionType.TALKING_COPASSENGER
         else:
-            self._copassenger_start = None
+            if self._copassenger_start is not None and (now - self._copassenger_last_seen > 0.5):
+                self._copassenger_start = None
 
         # ── Scenario 7: Long distraction (sustained looking away) ──
-        if (detected_distraction == DistractionType.NONE and
-                abs(yaw) > self.yaw_threshold):
+        looking_away_cond = (detected_distraction == DistractionType.NONE and
+                             abs(yaw) > self.yaw_threshold)
+        if looking_away_cond:
             if self._looking_away_start is None:
                 self._looking_away_start = now
-            elif now - self._looking_away_start >= self.distraction_long_secs:
+            self._looking_away_last_seen = now
+            if now - self._looking_away_start >= self.distraction_long_secs:
                 detected_distraction = DistractionType.LOOKING_AWAY
         else:
-            self._looking_away_start = None
+            if self._looking_away_start is not None and (now - self._looking_away_last_seen > 0.5):
+                self._looking_away_start = None
 
         # ── Scenario 8: Repeated glances / VATS ──
         if detected_distraction == DistractionType.NONE:
@@ -385,16 +412,18 @@ class DecisionEngine:
                 detected_distraction = DistractionType.SMOKING
 
         # ── Scenario 15: Eating/Drinking (head tilted back + mouth open) ──
-        if (detected_distraction == DistractionType.NONE and
-                pitch > 15.0 and mar > 0.5 and
-                self.yawn_counter < self.mar_consec_frames):
-            # Mouth open but not long enough to be yawning
+        eating_cond = (detected_distraction == DistractionType.NONE and
+                       pitch > 15.0 and mar > 0.5 and
+                       self.yawn_counter < self.mar_consec_frames)
+        if eating_cond:
             if self._eating_start is None:
                 self._eating_start = now
-            elif now - self._eating_start >= self.eating_secs:
+            self._eating_last_seen = now
+            if now - self._eating_start >= self.eating_secs:
                 detected_distraction = DistractionType.EATING_DRINKING
         else:
-            self._eating_start = None
+            if self._eating_start is not None and (now - self._eating_last_seen > 0.5):
+                self._eating_start = None
 
         # ── Scenario 16: Unresponsive driver ──
         if detected_distraction == DistractionType.NONE:

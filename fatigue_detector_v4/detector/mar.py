@@ -11,7 +11,12 @@ Typical values
 """
 
 import numpy as np
-from scipy.spatial import distance
+
+
+def _fast_dist(p1: np.ndarray, p2: np.ndarray) -> float:
+    """Fast Euclidean distance without scipy overhead."""
+    d = p1 - p2
+    return float(np.sqrt(d[0] * d[0] + d[1] * d[1]))
 
 
 def mouth_aspect_ratio(mouth: np.ndarray) -> float:
@@ -40,10 +45,10 @@ def mouth_aspect_ratio(mouth: np.ndarray) -> float:
         Mouth aspect ratio.  Returns ``0.0`` when the horizontal
         distance is zero (degenerate input).
     """
-    A: float = distance.euclidean(mouth[1], mouth[7])   # 61, 67
-    B: float = distance.euclidean(mouth[2], mouth[6])   # 62, 66
-    C: float = distance.euclidean(mouth[3], mouth[5])   # 63, 65
-    D: float = distance.euclidean(mouth[0], mouth[4])   # 60, 64
+    A: float = _fast_dist(mouth[1], mouth[7])   # 61, 67
+    B: float = _fast_dist(mouth[2], mouth[6])   # 62, 66
+    C: float = _fast_dist(mouth[3], mouth[5])   # 63, 65
+    D: float = _fast_dist(mouth[0], mouth[4])   # 60, 64
 
     if D == 0:
         return 0.0

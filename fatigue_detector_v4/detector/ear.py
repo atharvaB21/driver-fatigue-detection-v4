@@ -16,7 +16,12 @@ Facial Landmarks. *21st Computer Vision Winter Workshop*.
 """
 
 import numpy as np
-from scipy.spatial import distance
+
+
+def _fast_dist(p1: np.ndarray, p2: np.ndarray) -> float:
+    """Fast Euclidean distance without scipy overhead."""
+    d = p1 - p2
+    return float(np.sqrt(d[0] * d[0] + d[1] * d[1]))
 
 
 def eye_aspect_ratio(eye: np.ndarray) -> float:
@@ -45,9 +50,9 @@ def eye_aspect_ratio(eye: np.ndarray) -> float:
         Eye aspect ratio in the range [0, ~0.5].  Returns ``0.0`` when
         the horizontal distance is zero (degenerate input).
     """
-    A: float = distance.euclidean(eye[1], eye[5])
-    B: float = distance.euclidean(eye[2], eye[4])
-    C: float = distance.euclidean(eye[0], eye[3])
+    A: float = _fast_dist(eye[1], eye[5])
+    B: float = _fast_dist(eye[2], eye[4])
+    C: float = _fast_dist(eye[0], eye[3])
 
     if C == 0:
         return 0.0

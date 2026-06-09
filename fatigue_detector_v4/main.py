@@ -446,6 +446,14 @@ def main():
     failed_reads = 0
     reconnect_attempt = 0
 
+    # ── Calibration state ──
+    yaw_offset = 0.0
+    pitch_offset = 0.0
+    roll_offset = 0.0
+    calibration_frames = []       # list of (pitch, yaw, roll) for auto-calibration
+    is_calibrated = False
+    calibration_target_count = 60  # 60 frames of face detection for baseline
+
     print()
     print("[INFO] System running. Press 'q' to quit.")
     if test_mode:
@@ -453,7 +461,7 @@ def main():
               "4=Yawn 5=LookAway 6=PhoneLook")
         print("[INFO]           7=Copassenger 8=PhoneCall "
               "9=Smoking 0=NoFace")
-    print("[INFO] Controls: r=reset, l=landmarks, h=HUD, s=screenshot")
+    print("[INFO] Controls: r=reset, c=calibrate, l=landmarks, h=HUD, s=screenshot")
     print()
 
     # ══════════════════════ MAIN LOOP ══════════════════════
@@ -560,38 +568,51 @@ def main():
                     face_detector.draw_face_rect(frame, landmarks, color=(0, 255, 0))
                     face_detector.draw_landmarks(frame, landmarks)
 
-                # ── EAR calculation ──
-                left_eye = face_detector.get_left_eye(landmarks)
-                right_eye = face_detector.get_right_eye(landmarks)
-                ear = compute_ear(left_eye, right_eye)
-
-                # Draw eye contours
-                left_hull = cv2.convexHull(left_eye)
-                right_hull = cv2.convexHull(right_eye)
-                cv2.drawContours(frame, [left_hull], -1, (0, 255, 255), 1)
-                cv2.drawContours(frame, [right_hull], -1, (0, 255, 255), 1)
-
-                # ── MAR calculation ──
-                mouth_inner = face_detector.get_mouth_inner(landmarks)
-                mar = mouth_aspect_ratio(mouth_inner)
-
-                # Draw mouth contour
-                mouth_hull = cv2.convexHull(mouth_inner)
-                cv2.drawContours(frame, [mouth_hull], -1, (0, 255, 255), 1)
-
-                # ── Head pose estimation ──
-                if head_pose_enabled:
-                    pose_points = face_detector.get_head_pose_points(landmarks)
-                    (pitch, yaw, roll), rvec, tvec = estimate_head_pose(
-                        pose_points, frame.shape
-                    )
-
-                # ── Gaze estimation (iris-based, zero extra cost) ──
-                if gaze_estimator is not None:
-                    gaze_h, gaze_v = gaze_estimator.estimate(landmarks)
-
-                # Cache computed values for skipped frames
                 if should_process:
+                    # ── EAR calculation ──
+                    left_eye = face_detector.get_left_eye(landmarks)
+                    right_eye = face_detector.get_right_eye(landmarks)
+                    ear = compute_ear(left_eye, right_eye)
+
+                    # ── MAR calculation ──
+                    mouth_inner = face_detector.get_mouth_inner(landmarks)
+                    mar = mouth_aspect_ratio(mouth_inner)
+
+                    # Draw eye and mouth contours (skip in low-power mode)
+                    if show_landmarks:
+                        left_hull = cv2.convexHull(left_eye)
+                        right_hull = cv2.convexHull(right_eye)
+                        cv2.drawContours(frame, [left_hull], -1, (0, 255, 255), 1)
+                        cv2.drawContours(frame, [right_hull], -1, (0, 255, 255), 1)
+                        mouth_hull = cv2.convexHull(mouth_inner)
+                        cv2.drawContours(frame, [mouth_hull], -1, (0, 255, 255), 1)
+
+                    # ── Head pose estimation ──
+                    if head_pose_enabled:
+                        pose_points = face_detector.get_head_pose_points(landmarks)
+                        (pitch, yaw, roll), rvec, tvec = estimate_head_pose(
+                            pose_points, frame.shape
+                        )
+
+                        if not is_calibrated:
+                            calibration_frames.append((pitch, yaw, roll))
+                            if len(calibration_frames) >= calibration_target_count:
+                                pitch_offset = sum(f[0] for f in calibration_frames) / len(calibration_frames)
+                                yaw_offset = sum(f[1] for f in calibration_frames) / len(calibration_frames)
+                                roll_offset = sum(f[2] for f in calibration_frames) / len(calibration_frames)
+                                is_calibrated = True
+                                print(f"[INFO] Auto-calibration complete. Offsets - Pitch: {pitch_offset:.1f}, Yaw: {yaw_offset:.1f}, Roll: {roll_offset:.1f}")
+
+                        # Apply offsets to align head pose relative to the driver looking straight
+                        pitch -= pitch_offset
+                        yaw -= yaw_offset
+                        roll -= roll_offset
+
+                    # ── Gaze estimation (iris-based, zero extra cost) ──
+                    if gaze_estimator is not None:
+                        gaze_h, gaze_v = gaze_estimator.estimate(landmarks)
+
+                    # Cache computed values for skipped frames
                     cached_ear = ear
                     cached_mar = mar
                     cached_pitch = pitch
@@ -602,7 +623,7 @@ def main():
                     cached_rvec = rvec
                     cached_tvec = tvec
                 else:
-                    # Use cached values for skipped frames
+                    # Skipped frame: reuse all cached metrics (no recomputation)
                     ear = cached_ear
                     mar = cached_mar
                     pitch = cached_pitch
@@ -630,6 +651,7 @@ def main():
             s_mar = smoothed['mar']
             s_pitch = smoothed['pitch']
             s_yaw = smoothed['yaw']
+            s_roll = smoothed['roll']
             s_gaze_h = smoothed['gaze_h']
             s_gaze_v = smoothed['gaze_v']
 
@@ -648,6 +670,7 @@ def main():
                 gaze_h=s_gaze_h, gaze_v=s_gaze_v,
                 face_detected=face_detected,
                 face_confidence=face_confidence,
+                roll=s_roll,
             )
 
             # ── Optional CNN expression ──
@@ -720,6 +743,15 @@ def main():
                     (0, 255, 0), 2
                 )
 
+            # ── Calibration Overlay ──
+            if not is_calibrated and face_detected:
+                cv2.putText(
+                    frame, f"CALIBRATING HEAD POSE ({len(calibration_frames)}/{calibration_target_count})",
+                    (10, frame.shape[0] - 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    (0, 140, 255), 2  # Orange color
+                )
+
             # ── FPS calculation ──
             frame_count += 1
             elapsed = time.time() - fps_start_time
@@ -742,6 +774,13 @@ def main():
                 perclos_tracker.reset()
                 smoother.reset()
                 print("[INFO] State machine reset.")
+            elif key == ord('c'):
+                calibration_frames = []
+                is_calibrated = False
+                pitch_offset = 0.0
+                yaw_offset = 0.0
+                roll_offset = 0.0
+                print("[INFO] Re-calibrating head pose. Please look straight at the road...")
             elif key == ord('l'):
                 show_landmarks = not show_landmarks
                 print(f"[INFO] Landmarks {'ON' if show_landmarks else 'OFF'}")

@@ -160,12 +160,15 @@ class FaceDetector:
         faces = []
         if results.face_landmarks:
             for face_landmarks in results.face_landmarks:
-                # Convert normalized landmarks to pixel coordinates
-                # Using out_w/out_h so coordinates map to display frame
-                landmarks = np.array([
-                    (int(lm.x * out_w), int(lm.y * out_h))
-                    for lm in face_landmarks
-                ], dtype=np.int32)
+                # Vectorized conversion: extract all x,y into numpy arrays at once
+                # This is much faster than a Python for-loop over 478 landmarks
+                coords = np.empty((len(face_landmarks), 2), dtype=np.float32)
+                for i, lm in enumerate(face_landmarks):
+                    coords[i, 0] = lm.x
+                    coords[i, 1] = lm.y
+                coords[:, 0] *= out_w
+                coords[:, 1] *= out_h
+                landmarks = coords.astype(np.int32)
                 faces.append(landmarks)
 
         self._last_landmarks = faces
