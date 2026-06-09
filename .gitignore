@@ -1,0 +1,49 @@
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Database files
+*.db
+*.sqlite3
+
+# Model files (large binaries — download via script)
+fatigue_detector_v4/models/*.task
+!fatigue_detector_v4/models/.gitkeep
+
+# Generated sound files
+fatigue_detector_v4/sounds/*.wav
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+
+# Pytest / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
