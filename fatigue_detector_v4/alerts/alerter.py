@@ -131,7 +131,8 @@ class Alerter:
                      distraction_type: DistractionType, yawning: bool,
                      ear: float, mar: float, perclos: float,
                      pitch: float, yaw: float, fps: float,
-                     gaze_h: float = 0.5, gaze_v: float = 0.5) -> np.ndarray:
+                     gaze_h: float = 0.5, gaze_v: float = 0.5,
+                     roll: float = 0.0) -> np.ndarray:
         """Draw all visual alerts and HUD on the video frame.
 
         Parameters
@@ -221,7 +222,7 @@ class Alerter:
 
         # ── HUD Panel ──
         self._draw_hud(
-            frame, ear, mar, perclos, pitch, yaw, fps, state,
+            frame, ear, mar, perclos, pitch, yaw, roll, fps, state,
             gaze_h, gaze_v, distraction_type
         )
 
@@ -259,14 +260,14 @@ class Alerter:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
     def _draw_hud(self, frame: np.ndarray, ear: float, mar: float,
-                  perclos: float, pitch: float, yaw: float,
+                  perclos: float, pitch: float, yaw: float, roll: float,
                   fps: float, state: DriverState,
                   gaze_h: float = 0.5, gaze_v: float = 0.5,
                   distraction_type: DistractionType = DistractionType.NONE
                   ) -> None:
         """Draw a semi-transparent HUD panel with real-time metrics."""
         h, w = frame.shape[:2]
-        panel_w, panel_h = 230, 260
+        panel_w, panel_h = 230, 280
         x0 = w - panel_w - 10
         y0 = 10
 
@@ -287,6 +288,7 @@ class Alerter:
             (f"PERCLOS: {perclos:.2f}",  self.COLOR_GREEN if perclos < 0.15 else self.COLOR_RED),
             (f"Pitch: {pitch:.1f}",      self.COLOR_GREEN if abs(pitch) < 20 else self.COLOR_ORANGE),
             (f"Yaw: {yaw:.1f}",          self.COLOR_GREEN if abs(yaw) < 30 else self.COLOR_ORANGE),
+            (f"Roll: {roll:.1f}",        self.COLOR_GREEN if abs(roll) < 8 else self.COLOR_ORANGE),
             (f"Gaze H: {gaze_h:.2f}",   self.COLOR_GREEN if 0.3 < gaze_h < 0.7 else self.COLOR_ORANGE),
             (f"Gaze V: {gaze_v:.2f}",    self.COLOR_GREEN if gaze_v < 0.65 else self.COLOR_ORANGE),
             (f"State: {state.name}",     self._state_color(state)),

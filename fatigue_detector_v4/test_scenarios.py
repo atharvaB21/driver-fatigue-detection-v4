@@ -166,7 +166,8 @@ class ScenarioTestRunner:
         engine = self._make_engine(distraction_long_secs=0.2)
         for _ in range(30):
             result = engine.update(
-                ear=0.30, mar=0.0, pitch=0.0, yaw=40.0, perclos=0.0
+                ear=0.30, mar=0.0, pitch=0.0, yaw=40.0, perclos=0.0,
+                gaze_h=0.75, gaze_v=0.5
             )
             time.sleep(0.01)
         state, dist, yawn = result
@@ -182,7 +183,8 @@ class ScenarioTestRunner:
             # Look away briefly
             for _ in range(5):
                 result = engine.update(
-                    ear=0.30, mar=0.0, pitch=0.0, yaw=25.0, perclos=0.0
+                    ear=0.30, mar=0.0, pitch=0.0, yaw=25.0, perclos=0.0,
+                    gaze_h=0.75, gaze_v=0.5
                 )
                 time.sleep(0.01)
             # Look back
@@ -199,7 +201,8 @@ class ScenarioTestRunner:
         # Check during a glance-away
         for _ in range(5):
             result = engine.update(
-                ear=0.30, mar=0.0, pitch=0.0, yaw=25.0, perclos=0.0
+                ear=0.30, mar=0.0, pitch=0.0, yaw=25.0, perclos=0.0,
+                gaze_h=0.75, gaze_v=0.5
             )
         state, dist, yawn = result
         passed = dist == DistractionType.REPEATED_GLANCES
@@ -234,12 +237,12 @@ class ScenarioTestRunner:
                      "TALKING_COPASSENGER", dist.name)
 
     def test_11_phone_call(self):
-        """Scenario 11: Phone call — moderate yaw + off-center gaze."""
+        """Scenario 11: Phone call — moderate yaw + centered gaze + moderate roll."""
         engine = self._make_engine(phone_call_secs=0.2)
         for _ in range(30):
             result = engine.update(
-                ear=0.30, mar=0.0, pitch=0.0, yaw=25.0, perclos=0.0,
-                gaze_h=0.75, gaze_v=0.5
+                ear=0.30, mar=0.0, pitch=0.0, yaw=20.0, perclos=0.0,
+                gaze_h=0.5, gaze_v=0.5, roll=5.0
             )
             time.sleep(0.01)
         state, dist, yawn = result

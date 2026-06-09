@@ -348,10 +348,13 @@ class DecisionEngine:
             if self._phone_look_start is not None and (now - self._phone_look_last_seen > 0.5):
                 self._phone_look_start = None
 
-        # ── Scenario 11: Phone call (head tilt/roll OR moderate yaw + gaze off-center) ──
+        # ── Scenario 11: Phone call (significant head tilt OR sustained moderate yaw + roll + centered gaze) ──
+        # When holding a phone to the ear, yaw is typically 10-35° with centered gaze
+        # (eyes on road) and a slight head tilt (roll >= 4°). Alternatively, a high roll
+        # tilt (shoulder-pinch) indicates a phone call if head turn is moderate (yaw <= 35°).
         phone_call_cond = (detected_distraction == DistractionType.NONE and (
-            abs(roll) >= self.phone_call_roll_threshold or
-            (15.0 <= abs(yaw) <= 35.0 and abs(gaze_h - 0.5) > 0.15)
+            (abs(roll) >= self.phone_call_roll_threshold and abs(yaw) <= 35.0) or
+            (10.0 <= abs(yaw) <= 35.0 and abs(roll) >= 4.0 and abs(gaze_h - 0.5) <= 0.15)
         ))
         if phone_call_cond:
             if self._phone_call_start is None:
@@ -378,8 +381,11 @@ class DecisionEngine:
                 self._copassenger_start = None
 
         # ── Scenario 7: Long distraction (sustained looking away) ──
+        # Requires both head turned AND gaze off-center — eyes on road
+        # with head turned is not "looking away".
+        gaze_away = abs(gaze_h - 0.5) > 0.15
         looking_away_cond = (detected_distraction == DistractionType.NONE and
-                             abs(yaw) > self.yaw_threshold)
+                             abs(yaw) > self.yaw_threshold and gaze_away)
         if looking_away_cond:
             if self._looking_away_start is None:
                 self._looking_away_start = now
@@ -392,7 +398,11 @@ class DecisionEngine:
 
         # ── Scenario 8: Repeated glances / VATS ──
         if detected_distraction == DistractionType.NONE:
-            if abs(yaw) > self.yaw_glance_threshold:
+            # A "glance away" requires BOTH head turned (yaw) AND eyes
+            # actually off the road (gaze off-center).  If gaze is centered
+            # the driver is still watching the road even with head turned.
+            gaze_off_center = abs(gaze_h - 0.5) > 0.15
+            if abs(yaw) > self.yaw_glance_threshold and gaze_off_center:
                 # We're currently looking away — check if this is a new glance
                 if (not self._glance_timestamps or
                         now - self._glance_timestamps[-1] > 0.5):

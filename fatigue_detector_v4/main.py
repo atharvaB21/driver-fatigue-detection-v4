@@ -386,6 +386,7 @@ def main():
         eating_secs=Config.EATING_DRINKING_DURATION,
         face_obscured_secs=Config.FACE_OBSCURED_THRESHOLD,
         no_face_secs=Config.NO_FACE_THRESHOLD,
+        phone_call_roll_threshold=Config.PHONE_CALL_ROLL_THRESHOLD,
         copassenger_side=Config.COPASSENGER_SIDE,
     )
 
@@ -710,7 +711,7 @@ def main():
                 alerter.draw_overlay(
                     frame, state, distraction_type, yawning,
                     s_ear, s_mar, perclos_val, s_pitch, s_yaw, fps,
-                    gaze_h=s_gaze_h, gaze_v=s_gaze_v
+                    gaze_h=s_gaze_h, gaze_v=s_gaze_v, roll=s_roll
                 )
 
             # ── No face warning (when face_detected is False and no HUD) ──

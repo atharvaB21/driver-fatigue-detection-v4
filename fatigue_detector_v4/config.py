@@ -181,7 +181,7 @@ class Config:
     PHONE_CALL_THRESHOLD: float = 3.0
     """Seconds of sustained head tilt or turn for phone-call alert."""
 
-    PHONE_CALL_ROLL_THRESHOLD: float = 11.0
+    PHONE_CALL_ROLL_THRESHOLD: float = 14.0
     """Head tilt (roll) in degrees beyond which a phone call is suspected."""
 
 

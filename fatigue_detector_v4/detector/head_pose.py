@@ -11,14 +11,15 @@ import math
 
 
 # 3D model points for a generic face (nose tip at origin).
-# These are approximate coordinates in mm-like units for a standard face.
+# Coordinate system: X right, Y up, Z toward camera (face-centric).
+# solvePnP handles the mapping to OpenCV camera coordinates.
 MODEL_POINTS_3D = np.array([
-    (0.0,    0.0,    0.0),       # Nose tip         (landmark 30)
-    (0.0,   -330.0, -65.0),      # Chin              (landmark 8)
-    (-225.0, 170.0, -135.0),     # Left eye corner   (landmark 36)
-    (225.0,  170.0, -135.0),     # Right eye corner   (landmark 45)
-    (-150.0,-150.0, -125.0),     # Left mouth corner  (landmark 48)
-    (150.0, -150.0, -125.0)      # Right mouth corner (landmark 54)
+    (0.0,    0.0,    0.0),       # Nose tip
+    (0.0,   -330.0, -65.0),      # Chin
+    (-225.0, 170.0, -135.0),     # Left eye corner
+    (225.0,  170.0, -135.0),     # Right eye corner
+    (-150.0,-150.0, -125.0),     # Left mouth corner
+    (150.0, -150.0, -125.0)      # Right mouth corner
 ], dtype=np.float64)
 
 
@@ -125,12 +126,13 @@ def estimate_head_pose(image_points: np.ndarray, frame_shape: tuple) -> tuple:
     R, _ = cv2.Rodrigues(rvec)
     pitch, yaw, roll = rotation_matrix_to_euler(R)
 
-    # Correct for the 180-degree flip in the pitch axis caused by
-    # the 3D model Y-axis (pointing up) vs the image 2D Y-axis (pointing down).
-    if pitch > 90:
-        pitch -= 180
-    elif pitch < -90:
-        pitch += 180
+    # Correct pitch for the face-centric coordinate system.
+    # The 3D model uses Y-up / Z-toward-camera, so solvePnP's raw
+    # Euler decomposition includes a ~180° pitch offset.
+    if pitch > 0:
+        pitch = 180.0 - pitch
+    else:
+        pitch = -(180.0 + pitch)
 
     return (pitch, yaw, roll), rvec, tvec
 
